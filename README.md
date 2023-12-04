@@ -1,6 +1,6 @@
 ### Hi there, I am Z👋
 
-I am first year computer science student from the Philippines
+I am second year computer science student from the Philippines
 
 <!--
 **ztest95/ztest95** is a ✨ _special_ ✨ repository because its `README.md` (this file) appears on your GitHub profile.
