@@ -40,9 +40,11 @@ WORD = "ztest95"
 ADVANCE = LETTER_W + GAP
 MARK_W = len(WORD) * ADVANCE - GAP
 MARK_H = LETTER_H
-X0 = (W - MARK_W * CELL) // 2
-Y0 = (H - (MARK_H + 7) * CELL) // 2
-FLOOR = Y0 + (MARK_H + 7) * CELL
+# centre the ink itself: equal cells to the left/right and above/below of the lit mark. Cells are
+# snapped to whole pixels, so the two margins can only differ by the odd pixel left over.
+X0 = (W - (MARK_W - 1) * CELL) // 2
+Y0 = (H - MARK_H * CELL) // 2
+FLOOR = Y0 + MARK_H * CELL
 
 
 def cells():
@@ -70,6 +72,7 @@ def still():
 
 
 SPLINES = ";".join(["0.33 0 0.67 1"] * 6)
+SLOW = 1.6                           # period multiplier for the beats
 
 
 def reveal():
@@ -77,20 +80,21 @@ def reveal():
     its home, falls, squashes on contact, and is pushed one row down by the rows landing on it, so
     every letter assembles top-down in the air and only settles at the end."""
     out = [head()]
-    STEP = 0.011                         # seconds between cells
+    STEP = 0.026                         # seconds between cells
+    # every beat below is scaled by SLOW
     cells_ = sorted(cells(), key=lambda c: (c[2], -c[1], c[0]))
     for idx, (c, r, _letter) in enumerate(cells_):
         x, y = to_px(c, r)
         # the rows above land on this one in the same beat: it is pushed down `rows_above` rows
         rows_above = LETTER_H - 1 - r
         t0 = idx * STEP
-        fall = 0.20 + 0.035 * r          # higher rows fall further, so they take longer
+        fall = (0.34 + 0.05 * r) * SLOW  # higher rows fall further, so they take longer
         land = t0 + fall
-        squash = land + 0.05             # squash on contact
-        push_at = squash + 0.05          # the row above lands and shoves it down
-        push_end = push_at + rows_above * 0.06 + 0.001
-        settle = push_end + 0.11
-        end = settle + 0.10
+        squash = land + 0.09 * SLOW      # squash on contact
+        push_at = squash + 0.09 * SLOW   # the row above lands and shoves it down
+        push_end = push_at + rows_above * 0.11 * SLOW + 0.001
+        settle = push_end + 0.18 * SLOW
+        end = settle + 0.16 * SLOW
         kt = [0, t0, land, squash, push_at, push_end, end]
         k = ";".join(f"{t / end:.6f}" for t in kt)
         # squash is baked into the translate: the cell keeps its top edge and shrinks toward it,
