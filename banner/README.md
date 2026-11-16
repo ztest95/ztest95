@@ -2,18 +2,21 @@
 
 `make_banner.py` rebuilds the wordmark on an exact pixel lattice: every glyph pixel is one `CELL`
 square and every gap is one `CELL`, so the grid scales by whole numbers with no seams. Glyphs are
-the original 4 x 3 blocks, unchanged.
+the original 3 x 4 blocks, unchanged.
 
-- `banner.svg` — still, drop-in replacement for `banner.png`
-- `banner-reveal.svg` — test animation: cells drop in letter by letter (bottom row first), squash
-  on contact, and get pushed down by the row landing on them
-- `banner.json` — `cell`, `origin`, `floor` and the lit cells, for anything that wants to drive the
-  lattice
+The canvas is a fixed 1500 x 400 (GitHub's cap) and transparent — no background rectangle — so it
+keeps today's banner dimensions and the page background shows through. The mark is centred on both
+axes. There are two files because the ink has to flip: `banner-light.svg` (dark ink) and
+`banner-dark.svg` (light ink), each with a `-reveal` variant carrying the drop-in animation.
+
+- `banner-{light,dark}.svg` — still
+- `banner-reveal-{light,dark}.svg` — the drop-in animation
+- `banner.json` — `cell`, `origin`, `floor`, glyphs and cells, for anything that wants the lattice
 
 SMIL and inline attributes only. No JS, no CSS, no external font, since GitHub serves this through
 an `<img>`.
 
 ```
 python3 make_banner.py
-python3 shot_banner.py /tmp/frames 0.2 0.6 1.0   # needs playwright + chromium
+python3 shot_banner.py /tmp/frames 0.5 2.0 6.0   # needs playwright + chromium
 ```

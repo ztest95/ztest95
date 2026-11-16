@@ -10,20 +10,20 @@ grid by any integer without seams.
 The glyphs are 3 x 4, transcribed cell by cell from the original banner (Pixel Font 4x4 — the
 letter cell is 4 cells wide including its 1-cell gap, so the ink is 3). Row 0 is the top row.
 
-The canvas keeps GitHub's 1500 x 400 cap and gives the mark free rows underneath, so cells can drop
-and be clipped at the floor without ever leaving the viewBox.
+The canvas is a FIXED 1500 x 400 (GitHub's cap) and TRANSPARENT — no background rectangle — so the
+banner keeps today's dimensions and the page background shows through. The mark is centred on both
+axes with plenty of empty room for the drop.
 
 Everything is SMIL and inline attributes: GitHub serves this through an <img>, so no JS, no CSS
 keyframes, no external font.
 """
 import json
 
-CELL = 10
+CELL = 30
 LETTER_W, LETTER_H = 3, 4
 GAP = 1                      # in cells: the original 6px gap / 6px pixel
 W, H = 1500, 400
-BG = "#f1f1f1"
-INK = "#111111"
+INKS = {"light": "#111111", "dark": "#f1f1f1"}   # one file per theme, as the fight uses
 FPS = 10
 
 # 3 wide x 4 tall, row by row, exactly as the banner draws them.
@@ -40,9 +40,10 @@ WORD = "ztest95"
 ADVANCE = LETTER_W + GAP
 MARK_W = len(WORD) * ADVANCE - GAP
 MARK_H = LETTER_H
-# centre the ink itself: equal cells to the left/right and above/below of the lit mark. Cells are
-# snapped to whole pixels, so the two margins can only differ by the odd pixel left over.
-X0 = (W - (MARK_W - 1) * CELL) // 2
+# X0/Y0 are the first cell of the ink box, which is (MARK_W - 1) cells wide and MARK_H cells
+# tall. Anything odd is rounded, so both axes stay within a pixel of centred.
+W_INK = ((len(WORD) - 1) * ADVANCE + LETTER_W) * CELL
+X0 = (W - W_INK) // 2
 Y0 = (H - MARK_H * CELL) // 2
 FLOOR = Y0 + MARK_H * CELL
 
@@ -61,26 +62,25 @@ def to_px(col, row):
 
 
 def head():
-    return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}">'
-            f'<rect width="{W}" height="{H}" fill="{BG}"/>')
+    return f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}">'
 
 
-def still():
-    rects = "".join(f'<rect x="{x}" y="{y}" width="{CELL}" height="{CELL}" fill="{INK}"/>'
+def still(theme):
+    rects = "".join(f'<rect x="{x}" y="{y}" width="{CELL}" height="{CELL}" fill="{INKS[theme]}"/>'
                     for x, y in ((to_px(c, r)) for c, r, _ in cells()))
     return head() + rects + "</svg>"
 
 
 SPLINES = ";".join(["0.33 0 0.67 1"] * 6)
-SLOW = 1.6                           # period multiplier for the beats
+SLOW = 2.6                           # period multiplier for the beats
 
 
-def reveal():
+def reveal(theme):
     """Staggered drop-in, letter by letter, bottom row of each letter first. A cell starts above
     its home, falls, squashes on contact, and is pushed one row down by the rows landing on it, so
     every letter assembles top-down in the air and only settles at the end."""
     out = [head()]
-    STEP = 0.026                         # seconds between cells
+    STEP = 0.052                         # seconds between cells
     # every beat below is scaled by SLOW
     cells_ = sorted(cells(), key=lambda c: (c[2], -c[1], c[0]))
     for idx, (c, r, _letter) in enumerate(cells_):
@@ -102,7 +102,7 @@ def reveal():
         sq = [0, 0, 0, CELL * 0.55, 0, 0, 0]
         dy = [-CELL * (r + 1), 0, 0, 0, 0, rows_above * CELL, rows_above * CELL]
         out.append(
-            f'<rect x="{x}" y="{y}" width="{CELL}" height="{CELL}" fill="{INK}" opacity="0">'
+            f'<rect x="{x}" y="{y}" width="{CELL}" height="{CELL}" fill="{INKS[theme]}" opacity="0">'
             f'<set attributeName="opacity" to="1" begin="{t0:.3f}s"/>'
             f'<animateTransform attributeName="transform" type="translate" '
             f'values="{";".join(f"{d + q} 0" for d, q in zip(dy, sq))}" keyTimes="{k}" '
@@ -117,8 +117,9 @@ def reveal():
 
 
 if __name__ == "__main__":
-    open("banner.svg", "w").write(still())
-    open("banner-reveal.svg", "w").write(reveal())
+    for theme in INKS:
+        open(f"banner-{theme}.svg", "w").write(still(theme))
+        open(f"banner-reveal-{theme}.svg", "w").write(reveal(theme))
     open("banner.json", "w").write(json.dumps(
         {"cell": CELL, "origin": [X0, Y0], "floor": FLOOR, "glyphs": GLYPHS, "word": WORD,
          "pitch": ADVANCE, "cells": list(cells())}, indent=1))
