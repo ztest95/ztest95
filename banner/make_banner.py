@@ -61,14 +61,16 @@ def to_px(col, row):
 
 
 def head():
-    return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}">'
-            f'<rect width="{W}" height="{H}" fill="{BG}"/>')
+    return f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}">'
 
 
 def still():
+    """The still paints the background, so it stands alone wherever it is used."""
     rects = "".join(f'<rect x="{x}" y="{y}" width="{CELL}" height="{CELL}" fill="{INK}"/>'
                     for x, y in ((to_px(c, r)) for c, r, _ in cells()))
-    return head() + rects + "</svg>"
+    return head() + f'<rect width="{W}" height="{H}" fill="{BG}"/>' + rects + "</svg>"
+
+
 
 
 SPLINES = ";".join(["0.33 0 0.67 1"] * 6)
@@ -78,16 +80,25 @@ SLOW = 1.6                           # period multiplier for the beats
 def reveal():
     """Staggered drop-in, letter by letter, bottom row of each letter first. A cell starts above
     its home, falls, squashes on contact, and is pushed one row down by the rows landing on it, so
-    every letter assembles top-down in the air and only settles at the end."""
-    out = [head()]
+    every letter assembles top-down in the air and only settles at the end.
+
+    The two are separate beats: the background wipes in from the left first, the word only starts to
+    drop once the page is down."""
     STEP = 0.026                         # seconds between cells
     # every beat below is scaled by SLOW
     cells_ = sorted(cells(), key=lambda c: (c[2], -c[1], c[0]))
+    bg_start, bg_end, text_start = 0.0, 1.15 * SLOW, 1.5 * SLOW
+    out = [head(),
+           f'<clipPath id="bgwipe"><rect x="0" y="-60" width="{W + 120}" height="520">'
+           f'<animateTransform attributeName="transform" type="scale" values="0 1;1 1" keyTimes="0;1" '
+           f'begin="{bg_start:.3f}s" dur="{bg_end - bg_start:.3f}s" fill="freeze" '
+           'calcMode="spline" keySplines="0.4 0 0.2 1"/></rect></clipPath>',
+           f'<rect x="-60" y="-60" width="{W + 120}" height="520" fill="{BG}" clip-path="url(#bgwipe)"/>']
     for idx, (c, r, _letter) in enumerate(cells_):
         x, y = to_px(c, r)
         # the rows above land on this one in the same beat: it is pushed down `rows_above` rows
         rows_above = LETTER_H - 1 - r
-        t0 = idx * STEP
+        t0 = text_start + idx * STEP
         fall = (0.34 + 0.05 * r) * SLOW  # higher rows fall further, so they take longer
         land = t0 + fall
         squash = land + 0.09 * SLOW      # squash on contact
