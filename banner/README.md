@@ -5,9 +5,8 @@ square and every gap is one `CELL`, so the grid scales by whole numbers with no 
 the original 4 x 3 blocks, unchanged.
 
 - `banner.svg` — still, drop-in replacement for `banner.png`
-- `banner-reveal.svg` — two separate beats: the background wipes in from the left, then the word
-  drops in letter by letter (bottom row first), squashing on contact and being pushed down by the
-  row landing on it
+- `banner-reveal.svg` — two separate beats: the page builds in block by block in a ragged
+  diagonal, then the word snaps in letter by letter with a squash and no travel
 - `banner.json` — `cell`, `origin`, `floor` and the lit cells, for anything that wants to drive the
   lattice
 

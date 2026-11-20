@@ -17,11 +17,18 @@ Everything is SMIL and inline attributes: GitHub serves this through an <img>, s
 keyframes, no external font.
 """
 import json
+import math
 
 CELL = 10
 LETTER_W, LETTER_H = 3, 4
 GAP = 1                      # in cells: the original 6px gap / 6px pixel
 W, H = 1500, 400
+COLS, ROWS = W // CELL, H // CELL
+
+
+def rnd(i):
+    x = math.sin(i * 12.9898 + 78.233) * 43758.5453
+    return x - math.floor(x)
 BG = "#f1f1f1"
 INK = "#111111"
 FPS = 10
@@ -78,50 +85,40 @@ SLOW = 1.6                           # period multiplier for the beats
 
 
 def reveal():
-    """Staggered drop-in, letter by letter, bottom row of each letter first. A cell starts above
-    its home, falls, squashes on contact, and is pushed one row down by the rows landing on it, so
-    every letter assembles top-down in the air and only settles at the end.
+    """Two beats, both built out of the grid.
 
-    The two are separate beats: the background wipes in from the left first, the word only starts to
-    drop once the page is down."""
-    STEP = 0.026                         # seconds between cells
-    # every beat below is scaled by SLOW
-    cells_ = sorted(cells(), key=lambda c: (c[2], -c[1], c[0]))
-    bg_start, bg_end, text_start = 0.0, 1.15 * SLOW, 1.5 * SLOW
-    out = [head(),
-           f'<clipPath id="bgwipe"><rect x="0" y="-60" width="{W + 120}" height="520">'
-           f'<animateTransform attributeName="transform" type="scale" values="0 1;1 1" keyTimes="0;1" '
-           f'begin="{bg_start:.3f}s" dur="{bg_end - bg_start:.3f}s" fill="freeze" '
-           'calcMode="spline" keySplines="0.4 0 0.2 1"/></rect></clipPath>',
-           f'<rect x="-60" y="-60" width="{W + 120}" height="520" fill="{BG}" clip-path="url(#bgwipe)"/>']
-    for idx, (c, r, _letter) in enumerate(cells_):
+    The page comes in as a wall of blocks laying themselves down in a ragged diagonal order, so it
+    reads as being built rather than wiped. Only once the page is down does the word appear, one
+    letter at a time, each cell snapping in with a quick squash and no travel."""
+    page = [(c, r) for r in range(-1, ROWS + 1) for c in range(-1, COLS + 1)]
+    bg_step = (1.5 * SLOW) / len(page)
+    text_start = 2.0 * SLOW
+    out = [head()]
+
+    # --- beat 1: the page. The order is a diagonal sweep with jitter so no two neighbours land
+    # on the same beat; every block starts solid and is uncovered at its moment.
+    page.sort(key=lambda p: (p[0] * 0.8 + p[1]) + rnd(p[0] * 7.3 + p[1] * 13.1) * 7)
+    for i, (c, r) in enumerate(page):
+        t0 = i * bg_step
+        out.append(f'<rect x="{c * CELL}" y="{r * CELL}" width="{CELL}" height="{CELL}" '
+                   f'fill="{BG}" opacity="1">'
+                   f'<set attributeName="opacity" to="0" begin="0s" end="{t0:.3f}s"/></rect>')
+
+    # --- beat 2: the word, letter by letter, no travel
+    for idx, (c, r, _letter) in enumerate(sorted(cells(), key=lambda c: (c[2], c[1], c[0]))):
         x, y = to_px(c, r)
-        # the rows above land on this one in the same beat: it is pushed down `rows_above` rows
-        rows_above = LETTER_H - 1 - r
-        t0 = text_start + idx * STEP
-        fall = (0.34 + 0.05 * r) * SLOW  # higher rows fall further, so they take longer
-        land = t0 + fall
-        squash = land + 0.09 * SLOW      # squash on contact
-        push_at = squash + 0.09 * SLOW   # the row above lands and shoves it down
-        push_end = push_at + rows_above * 0.11 * SLOW + 0.001
-        settle = push_end + 0.18 * SLOW
-        end = settle + 0.16 * SLOW
-        kt = [0, t0, land, squash, push_at, push_end, end]
-        k = ";".join(f"{t / end:.6f}" for t in kt)
-        # squash is baked into the translate: the cell keeps its top edge and shrinks toward it,
-        # so no transform-origin is needed
-        sq = [0, 0, 0, CELL * 0.55, 0, 0, 0]
-        dy = [-CELL * (r + 1), 0, 0, 0, 0, rows_above * CELL, rows_above * CELL]
+        t0 = text_start + idx * 0.022
+        end = t0 + 0.26
         out.append(
             f'<rect x="{x}" y="{y}" width="{CELL}" height="{CELL}" fill="{INK}" opacity="0">'
             f'<set attributeName="opacity" to="1" begin="{t0:.3f}s"/>'
             f'<animateTransform attributeName="transform" type="translate" '
-            f'values="{";".join(f"{d + q} 0" for d, q in zip(dy, sq))}" keyTimes="{k}" '
-            f'dur="{end:.3f}s" fill="freeze" calcMode="spline" keySplines="{SPLINES}"/>'
+            f'values="0 {CELL * 0.5};0 0;0 0" keyTimes="0;{0.45:.2f};1" '
+            f'dur="{end - t0:.3f}s" fill="freeze" calcMode="spline" keySplines="{SPLINES[:27]}"/>'
             f'<animateTransform attributeName="transform" type="scale" '
-            f'values="1 1;1 1;1 1;1 0.45;1 1;1 1;1 1" keyTimes="{k}" '
-            f'dur="{end:.3f}s" fill="freeze" calcMode="spline" keySplines="{SPLINES}" '
-            f'transform-origin="{x} {y}"/>'
+            f'values="1 0.45;1 1;1 1" keyTimes="0;0.45;1" '
+            f'dur="{end - t0:.3f}s" fill="freeze" calcMode="spline" keySplines="{SPLINES[:27]}" '
+            f'transform-origin="{x} {y + CELL}"/>'
             "</rect>")
     out.append("</svg>")
     return "".join(out)
