@@ -72,7 +72,8 @@ def head():
 
 
 def still():
-    """The still paints the background, so it stands alone wherever it is used."""
+    """The still paints the background, so it stands alone wherever it is used. One rectangle, not
+    the reveal's block grid, so nothing can show through between tiles."""
     rects = "".join(f'<rect x="{x}" y="{y}" width="{CELL}" height="{CELL}" fill="{INK}"/>'
                     for x, y in ((to_px(c, r)) for c, r, _ in cells()))
     return head() + f'<rect width="{W}" height="{H}" fill="{BG}"/>' + rects + "</svg>"
@@ -100,8 +101,8 @@ def reveal():
     page.sort(key=lambda p: (p[0] * 0.8 + p[1]) + rnd(p[0] * 7.3 + p[1] * 13.1) * 7)
     for i, (c, r) in enumerate(page):
         t0 = i * bg_step
-        # one pixel of overlap, so no hairline of the page shows between blocks
-        out.append(f'<rect x="{c * CELL}" y="{r * CELL}" width="{CELL + 1}" height="{CELL + 1}" '
+        # full-bleed cells: blocks tile exactly, so the page reads as one surface at any scale
+        out.append(f'<rect x="{c * CELL}" y="{r * CELL}" width="{CELL}" height="{CELL}" '
                    f'fill="{BG}" opacity="1">'
                    f'<set attributeName="opacity" to="0" begin="0s" end="{t0:.3f}s"/></rect>')
 
