@@ -96,74 +96,44 @@ def still():
 
 
 SLOW = 1.6                           # period multiplier for the beats
-TEXT_STEP = 0.034                    # seconds every typed column lasts
-TYPED = (MARK_W + 1) // 2            # typed columns, rounded up so the line ends clean
-X_END = W + CELL                     # canvas width plus one cell of air
-# The word is typed in backwards, a cell at a time, behind a grey head that walks in from the
-# right edge and sets it open. The head is given whole cells of air to travel before it meets the
-# mark, because a block whose only visible width is a sliver off the canvas edge is rounded away
-# and looks frozen: `HEAD_FROM` is a cell right of the mark, `HEAD_IN` starts it at the edge.
-HEAD_FROM = X0 + MARK_W * CELL + CELL
-HEAD_IN = HEAD_FROM + ((W - HEAD_FROM - CELL) // CELL) * CELL
-PAD = 2 * CELL                       # a head never gets narrower than this, so it stays legible
-WORK = (HEAD_IN - HEAD_FROM) // CELL + TYPED + 4   # head steps, mark, then clear of it
+TEXT_STEP = 0.028                    # seconds between ink cells
+BG_SECONDS = 2.6 * SLOW              # the page's whole build
+BG_LEAD = 0.24                       # nothing is down when the first frame paints
+EASE = 0.22                          # how much the page's build lingers at each end
 
 
 def reveal():
     """Two beats, both built out of the grid.
 
     The page comes in as a wall of blocks laying themselves down in a ragged diagonal order, so it
-    reads as being built rather than wiped. Only once the page is down does the word appear, one
-    letter at a time, each cell snapping in with a quick squash and no travel."""
+    reads as being built rather than wiped. Only once the page is down does the word appear, left
+    to right, one letter at a time."""
     page = [(c, r) for r in range(-1, ROWS + 1) for c in range(-1, COLS + 1)]
-    bg_step = (2.6 * SLOW) / len(page)
-    text_start = 2.6 * SLOW + 0.15
     out = [head()]
 
     # --- beat 1: the page. The order is a diagonal sweep with jitter so no two neighbours land
     # on the same beat; every block starts solid and is uncovered at its moment.
     page.sort(key=lambda p: (p[0] * 0.8 + p[1]) + rnd(p[0] * 7.3 + p[1] * 13.1) * 7)
+    n = len(page)
+    span = BG_SECONDS - BG_LEAD
     for i, (c, r) in enumerate(page):
-        t0 = i * bg_step
+        # both ends are eased, by stretching the time axis with a sine: the build creeps in, races
+        # through the middle, then creeps out. The curve never doubles back, so times only rise
+        u = i / (n - 1)
+        t0 = BG_LEAD + span * (u - math.sin(2 * math.pi * u) * EASE / (2 * math.pi))
         # full-bleed cells: blocks tile exactly, so the page reads as one surface at any scale
         out.append(f'<rect x="{c * CELL}" y="{r * CELL}" width="{CELL}" height="{CELL}" '
                    f'fill="{BG}" opacity="1">'
                    f'<set attributeName="opacity" to="0" begin="0s" end="{t0:.3f}s"/></rect>')
 
-    # --- beat 2: the word. A single grey head is typed in from the right edge, over the word,
-    # and opens a gap as it goes so each letter reads. It walks right to left because the word
-    # then assembles the way it is read, and the tail is the late letter, which is what makes the
-    # end feel finished. Steps are whole cells, so a line is complete before the head reaches it;
-    # a plain wipe had been cutting shorter lines in half.
-    for hc, r, _letter in sorted(half_cells(), key=lambda c: (c[1], -c[0]), reverse=True):
-        x, y = to_px_half(hc, r)
-        # the head edge rounds up to the cell it is in, so the ink starts on it and reads outward
-        # it at half a cell a step (`sorted` makes that read the way it is typed in)
-        t0 = text_start + ((HEAD_FROM - x) // CELL + 1) * TEXT_STEP
+    # --- beat 2: the word, left to right, letter by letter
+    text_start = BG_SECONDS + 0.12
+    for idx, (c, r, _letter) in enumerate(sorted(cells(), key=lambda c: (c[2], c[1], c[0]))):
+        x, y = to_px(c, r)
+        t0 = text_start + idx * TEXT_STEP
         out.append(
             f'<rect x="{x}" y="{y}" width="{CELL}" height="{CELL}" fill="{INK}" opacity="0">'
             f'<set attributeName="opacity" to="1" begin="{t0:.3f}s"/></rect>')
-
-    # One head, typed in from the right edge and opening the word as it goes. It only ever moves
-    # left, a cell per step, so its edge is where the ink stops. It starts with a couple of cells
-    # of width and no more: from the canvas edge it would be rounded off, and where the walk
-    # continues off the mark a block only ever holds what is still worth showing.
-    xs, widths = [HEAD_IN], [X_END - HEAD_IN]
-    for step in range(1, WORK):
-        g = HEAD_IN - step * CELL
-        xs.append(g)
-        widths.append(max(X_END - max(g - CELL, HEAD_FROM), PAD))
-    # keyTimes have to close on 1, and the first steps share time 0 while the head is off screen
-    lead = 2
-    times = [max(step - lead, 0) / (WORK - 1 - lead) for step in range(WORK)]
-    out.append(
-        f'<rect x="{xs[0]}" y="{Y0}" width="{widths[0]}" height="{MARK_H * CELL}" fill="{GREY}">'
-        f'<animate attributeName="x" values="{";".join(map(str, xs))}" '
-        f'keyTimes="{";".join(f"{t:.4f}" for t in times)}" dur="{WORK * TEXT_STEP:.3f}s" '
-        f'begin="{text_start - TEXT_STEP:.3f}s" fill="freeze" calcMode="discrete"/>'
-        f'<animate attributeName="width" values="{";".join(map(str, widths))}" '
-        f'keyTimes="{";".join(f"{t:.4f}" for t in times)}" dur="{WORK * TEXT_STEP:.3f}s" '
-        f'begin="{text_start - TEXT_STEP:.3f}s" fill="freeze" calcMode="discrete"/></rect>')
     out.append("</svg>")
     return "".join(out)
 
