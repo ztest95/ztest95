@@ -99,7 +99,7 @@ SLOW = 1.6                           # period multiplier for the beats
 TEXT_STEP = 0.028                    # seconds between ink cells
 BG_SECONDS = 2.0                     # the page's whole build
 BG_LEAD = 0.16                       # nothing is down when the first frame paints
-EASE = 0.22                          # how much the page's build lingers at each end
+CLOSE_ROWS = 4                       # rows of the last band still to close when the ink starts
 
 
 def reveal():
@@ -111,23 +111,37 @@ def reveal():
     page = [(c, r) for r in range(-1, ROWS + 1) for c in range(-1, COLS + 1)]
     out = [head()]
 
-    # --- beat 1: the page. The order is a diagonal sweep with jitter so no two neighbours land
-    # on the same beat; every block starts solid and is uncovered at its moment.
-    page.sort(key=lambda p: (p[0] * 0.8 + p[1]) + rnd(p[0] * 7.3 + p[1] * 13.1) * 7)
-    n = len(page)
+    # --- beat 1: the page. What the eye reads is area, so the pace is held at a constant area per
+    # beat and the reveal is a band as tall as a full-width row advancing down the page. A band
+    # nudged in from the top-left corner would only start with a few cells and race, so a second
+    # front closes the matching band up from the bottom while the first opens the next one down;
+    # the two together hold the band full width from the very first beat. Entries carry how many
+    # cells they land at once, `1` or `2`, and that is what makes the rate constant.
+    # One column of both rows per beat, so the band holds 600 cells while it opens and the two
+    # rows can drift a cell apart between beats without changing the pace.
+    queue = []
+    for step in range(ROWS):
+        top = [(c, step) for c in range(COLS)]
+        bot = [(c, ROWS - 1 - step) for c in range(COLS)]
+        for k in range(COLS):
+            queue.append((top[k], 1.0))
+            if step < ROWS // 2:
+                queue.append((bot[k], 1.0))
+    # The band runs until the closing rows the ink starts on are down, plus those still to go;
+    # the word then takes over and the last rows land behind it, inside the ink's own run.
+    total = sum(w for _, w in queue)
+    open_total = total - CLOSE_ROWS * 2 * COLS
     span = BG_SECONDS - BG_LEAD
-    for i, (c, r) in enumerate(page):
-        # both ends are eased, by stretching the time axis with a sine: the build creeps in, races
-        # through the middle, then creeps out. The curve never doubles back, so times only rise
-        u = i / (n - 1)
-        t0 = BG_LEAD + span * (u - math.sin(2 * math.pi * u) * EASE / (2 * math.pi))
-        # full-bleed cells: blocks tile exactly, so the page reads as one surface at any scale
+    acc = 0.0
+    for (c, r), w in queue:
+        t0 = BG_LEAD + span * acc / open_total
         out.append(f'<rect x="{c * CELL}" y="{r * CELL}" width="{CELL}" height="{CELL}" '
                    f'fill="{BG}" opacity="1">'
                    f'<set attributeName="opacity" to="0" begin="0s" end="{t0:.3f}s"/></rect>')
+        acc += w
 
-    # --- beat 2: the word, left to right, letter by letter
-    text_start = BG_SECONDS + 0.08
+    # --- beat 2: the word, left to right, started while the last band is still closing behind it
+    text_start = BG_LEAD + span
     for idx, (c, r, _letter) in enumerate(sorted(cells(), key=lambda c: (c[2], c[1], c[0]))):
         x, y = to_px(c, r)
         t0 = text_start + idx * TEXT_STEP
