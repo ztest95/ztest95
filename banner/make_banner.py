@@ -97,8 +97,8 @@ def still():
 
 SLOW = 1.6                           # period multiplier for the beats
 TEXT_STEP = 0.028                    # seconds between ink cells
-BG_SECONDS = 2.6 * SLOW              # the page's whole build
-BG_LEAD = 0.24                       # nothing is down when the first frame paints
+BG_SECONDS = 2.0                     # the page's whole build
+BG_LEAD = 0.16                       # nothing is down when the first frame paints
 EASE = 0.22                          # how much the page's build lingers at each end
 
 
@@ -127,7 +127,7 @@ def reveal():
                    f'<set attributeName="opacity" to="0" begin="0s" end="{t0:.3f}s"/></rect>')
 
     # --- beat 2: the word, left to right, letter by letter
-    text_start = BG_SECONDS + 0.12
+    text_start = BG_SECONDS + 0.08
     for idx, (c, r, _letter) in enumerate(sorted(cells(), key=lambda c: (c[2], c[1], c[0]))):
         x, y = to_px(c, r)
         t0 = text_start + idx * TEXT_STEP
