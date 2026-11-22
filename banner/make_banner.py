@@ -96,9 +96,9 @@ def still():
 
 
 SLOW = 1.6                           # period multiplier for the beats
-TEXT_STEP = 0.28                     # seconds between ink cells (scaled with the build)
-BG_SECONDS = 20.0                    # the page's whole build (20s while judging the opening)
-BG_LEAD = 2.5                        # nothing is down when the first frame paints
+TEXT_STEP = 0.121                    # seconds between ink cells (scaled with the build)
+BG_SECONDS = 9.0                     # the page's whole build
+BG_LEAD = 1.2                        # nothing is down when the first frame paints
 SPREAD = 700.0                       # how far a cell may be pulled forward at the corners
 
 
