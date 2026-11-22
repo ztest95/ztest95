@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-make_banner.py  ·  builds banner.svg (still) and banner-reveal.svg (drop-in reveal) from the
-same pixel lattice.
+make_banner.py  ·  builds banner-reveal.svg, the banner.
 
 Every glyph pixel is ONE square. Cells and gaps are both `CELL` px, so the whole mark sits on a
 regular lattice: cell k spans x = k * CELL, every cell is CELL x CELL, and a renderer can scale the
@@ -16,7 +15,6 @@ and be clipped at the floor without ever leaving the viewBox.
 Everything is SMIL and inline attributes: GitHub serves this through an <img>, so no JS, no CSS
 keyframes, no external font.
 """
-import json
 import math
 
 CELL = 10
@@ -85,17 +83,6 @@ def head():
             '  shape-rendering="crispEdges">\n')
 
 
-def still():
-    """The still paints the background, so it stands alone wherever it is used. One rectangle, not
-    the reveal's block grid, so nothing can show through between tiles."""
-    rects = "".join(f'<rect x="{x}" y="{y}" width="{CELL}" height="{CELL}" fill="{INK}"/>'
-                    for x, y in ((to_px(c, r)) for c, r, _ in cells()))
-    return head() + f'<rect width="{W}" height="{H}" fill="{BG}"/>' + rects + "</svg>"
-
-
-
-
-SLOW = 1.6                           # period multiplier for the beats
 TEXT_STEP = 0.121                    # seconds between ink cells (scaled with the build)
 BG_SECONDS = 9.0                     # the page's whole build
 BG_LEAD = 1.2                        # nothing is down when the first frame paints
@@ -142,9 +129,5 @@ def reveal():
 
 
 if __name__ == "__main__":
-    open("banner.svg", "w").write(still())
     open("banner-reveal.svg", "w").write(reveal())
-    open("banner.json", "w").write(json.dumps(
-        {"cell": CELL, "origin": [X0, Y0], "floor": FLOOR, "glyphs": GLYPHS, "word": WORD,
-         "pitch": ADVANCE, "cells": list(cells())}, indent=1))
     print(f"mark {MARK_W}x{MARK_H} cells, {len(list(cells()))} lit squares")
