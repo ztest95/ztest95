@@ -86,7 +86,9 @@ def head():
 TEXT_STEP = 0.121                    # seconds between ink cells (scaled with the build)
 BG_SECONDS = 9.0                     # the page's whole build
 BG_LEAD = 1.2                        # nothing is down when the first frame paints
-SPREAD = 700.0                       # how far a cell may be pulled forward at the corners
+SPREAD = 160.0                       # how far a cell may be pulled forward at the corners
+EASE = 0.10                          # share of the run given to a trickled start and end
+TAILS = 0.55                         # share of the time those two trickled runs take together
 
 
 def reveal():
@@ -109,8 +111,20 @@ def reveal():
                              - rnd(p[1] * 3.1 + p[0] * 19.7) * SPREAD
                              * max(0.0, 1 - abs(p[0] * 0.8 + p[1]) / peak)))
     span = BG_SECONDS - BG_LEAD
+    # Eased clock. Even spacing still jumps at the start, because a corner diagonal is short: the
+    # first cells are the only ones due, so a batch lands at once. The first and last `EASE` of the
+    # run are stretched to take `TAILS` of the time between them, so the ends trickle instead of
+    # arriving as a batch; the middle keeps the even pace. `EASE` 0 is the old even spacing.
+    n = len(page) - 1
+    tail = max(1, round(n * EASE))
     for i, (c, r) in enumerate(page):
-        t0 = BG_LEAD + span * i / (len(page) - 1)
+        if i < tail:
+            u = TAILS * i / tail / 2
+        elif i > n - tail:
+            u = 1 - TAILS * (n - i) / tail / 2
+        else:
+            u = TAILS / 2 + (1 - TAILS) * (i - tail) / (n - 2 * tail)
+        t0 = BG_LEAD + span * u
         # full-bleed cells: blocks tile exactly, so the page reads as one surface at any scale
         out.append(f'<rect x="{c * CELL}" y="{r * CELL}" width="{CELL}" height="{CELL}" '
                    f'fill="{BG}" opacity="1">'
