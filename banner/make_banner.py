@@ -87,8 +87,8 @@ TEXT_STEP = 0.121                    # seconds between ink cells (scaled with th
 BG_SECONDS = 9.0                     # the page's whole build
 BG_LEAD = 1.2                        # nothing is down when the first frame paints
 SPREAD = 160.0                       # how far a cell may be pulled forward at the corners
-EASE = 0.10                          # share of the run given to a trickled start and end
-TAILS = 0.55                         # share of the time those two trickled runs take together
+FLAT = 0.15                          # share of the run the front is held flat at the start
+BUCKETS = 1500                        # slices of the run the rate is evened across
 
 
 def reveal():
@@ -106,27 +106,38 @@ def reveal():
     # is loosened instead, each cell's turn shuffled by a spread that is wide where the diagonal is
     # short and tight in the middle, so the corners give up their cells early and keep landing
     # while the front passes.
-    peak = ROWS + COLS * 0.8
-    page.sort(key=lambda p: ((p[0] * 0.8 + p[1]) + rnd(p[0] * 7.3 + p[1] * 13.1) * 7
+    # The page is padded and the row runs to COLS + 2, so a bare corner would wrap across the full
+    # width on the padded rows at once. Ordinarily the front is near-isometric, but pulled flat
+    # while all rows are still 2 cells in, so the build starts as a strip along the top and spills
+    # into the rows underneath. `FLAT` share of the run is spent flattened.
+    slant = 0.8 - 0.75 * FLAT * (1 - FLAT * (1 - FLAT) * 4)
+    peak = 1.0 + (COLS + 1) * 0.55
+    page.sort(key=lambda p: (((p[0] + 1) * 0.55 + (p[1] + 1)) + rnd(p[0] * 7.3 + p[1] * 13.1) * 7
                              - rnd(p[1] * 3.1 + p[0] * 19.7) * SPREAD
-                             * max(0.0, 1 - abs(p[0] * 0.8 + p[1]) / peak)))
+                             * max(0.0, 1 - abs((p[0] + 1) * 0.55 + (p[1] + 1)) / peak)))
     span = BG_SECONDS - BG_LEAD
-    # Eased clock. Even spacing still jumps at the start, because a corner diagonal is short: the
-    # first cells are the only ones due, so a batch lands at once. The first and last `EASE` of the
-    # run are stretched to take `TAILS` of the time between them, so the ends trickle instead of
-    # arriving as a batch; the middle keeps the even pace. `EASE` 0 is the old even spacing.
+    # Where each cell's turn sits in the run. On the bare diagonal a corner is short, so the first
+    # and last cells are the only ones due and land in a batch; the order is equalised against time
+    # instead. The cells are split into `BUCKETS` slices of the run and a slice that came up short
+    # borrows spare cells from the wide diagonals past it, so the rate starts at one cell, climbs
+    # evenly and falls back to one. `BUCKETS` 1 is the plain diagonal.
     n = len(page) - 1
-    tail = max(1, round(n * EASE))
-    for i, (c, r) in enumerate(page):
-        if i < tail:
-            u = TAILS * i / tail / 2
-        elif i > n - tail:
-            u = 1 - TAILS * (n - i) / tail / 2
-        else:
-            u = TAILS / 2 + (1 - TAILS) * (i - tail) / (n - 2 * tail)
+    # Rather than slanting the shape, the final time is kept as the diagonal order — the rate is
+    # even, so the strip stays sparse across the whole width instead of becoming solid and tall.
+    band = [0] * BUCKETS
+    for i, (c, row) in enumerate(page):
+        b = min((i * BUCKETS) // (n + 1), BUCKETS - 1)
+        band[b] += (((c + 1) * slant + (row + 1)) / peak)  # this slice's diagonal weight
+    seen = 0.0
+    for i, (c, row) in enumerate(page):
+        b = min((i * BUCKETS) // (n + 1), BUCKETS - 1)
+        u = ((b + seen / band[b]) if band[b] else b + 0.5) / BUCKETS
         t0 = BG_LEAD + span * u
+        seen += 1.0
+        if seen >= band[b]:
+            seen = 0.0
         # full-bleed cells: blocks tile exactly, so the page reads as one surface at any scale
-        out.append(f'<rect x="{c * CELL}" y="{r * CELL}" width="{CELL}" height="{CELL}" '
+        out.append(f'<rect x="{c * CELL}" y="{row * CELL}" width="{CELL}" height="{CELL}" '
                    f'fill="{BG}" opacity="1">'
                    f'<set attributeName="opacity" to="0" begin="0s" end="{t0:.3f}s"/></rect>')
 
