@@ -83,9 +83,9 @@ def head():
             '  shape-rendering="crispEdges">\n')
 
 
-TEXT_STEP = 0.121                    # seconds between ink cells (scaled with the build)
-BG_SECONDS = 9.0                     # the page's whole build
-BG_LEAD = 1.2                        # nothing is down when the first frame paints
+TEXT_STEP = 0.081                    # seconds between ink cells (scaled with the build)
+BG_SECONDS = 6.0                     # the page's whole build
+BG_LEAD = 0.8                        # nothing is down when the first frame paints
 SPREAD = 160.0                       # how far a cell may be pulled forward at the corners
 FLAT = 0.15                          # share of the run the front is held flat at the start
 BUCKETS = 1500                        # slices of the run the rate is evened across
