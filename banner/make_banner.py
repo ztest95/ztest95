@@ -83,9 +83,10 @@ def head():
             '  shape-rendering="crispEdges">\n')
 
 
-TEXT_STEP = 0.081                    # seconds between ink cells (scaled with the build)
-BG_SECONDS = 6.0                     # the page's whole build
-BG_LEAD = 0.8                        # nothing is down when the first frame paints
+TEXT_STEP = 0.03                     # seconds between ink cells
+BG_SECONDS = 3.4                     # the page's whole build
+BG_LEAD = 0.6                        # nothing is down when the first frame paints
+TEXT_START = 1.0                     # the word begins once the top strip is down
 SPREAD = 160.0                       # how far a cell may be pulled forward at the corners
 FLAT = 0.15                          # share of the run the front is held flat at the start
 BUCKETS = 1500                        # slices of the run the rate is evened across
@@ -141,11 +142,11 @@ def reveal():
                    f'fill="{BG}" opacity="1">'
                    f'<set attributeName="opacity" to="0" begin="0s" end="{t0:.3f}s"/></rect>')
 
-    # --- beat 2: the word, left to right, started while the last band is still closing behind it
-    text_start = BG_LEAD + span
+    # --- beat 2: the word, left to right. It starts once the top strip is down and the last of it
+    # types while the final corner is still closing, so the two beats overlap rather than queue.
     for idx, (c, r, _letter) in enumerate(sorted(cells(), key=lambda c: (c[0], c[1]))):
         x, y = to_px(c, r)
-        t0 = text_start + idx * TEXT_STEP
+        t0 = TEXT_START + idx * TEXT_STEP
         out.append(
             f'<rect x="{x}" y="{y}" width="{CELL}" height="{CELL}" fill="{INK}" opacity="0">'
             f'<set attributeName="opacity" to="1" begin="{t0:.3f}s"/></rect>')
@@ -156,3 +157,5 @@ def reveal():
 if __name__ == "__main__":
     open("banner-reveal.svg", "w").write(reveal())
     print(f"mark {MARK_W}x{MARK_H} cells, {len(list(cells()))} lit squares")
+    print(f"page {BG_LEAD:.1f}s..{BG_SECONDS:.1f}s, word {TEXT_START:.2f}s..{TEXT_START + 46 * TEXT_STEP:.2f}s, "
+          f"whole {max(BG_SECONDS, TEXT_START + 46 * TEXT_STEP):.2f}s")
